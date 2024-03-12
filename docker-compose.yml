@@ -1,35 +1,51 @@
 version: '2'
 services:
-  db:
-    image: postgres:15
-    user: root
-    environment:
-      - POSTGRES_USER=odoo
-      - POSTGRES_PASSWORD=odoo16@2022      
-      - POSTGRES_DB=postgres
-    restart: always             # run as a service
-    volumes:
-        - ./postgresql:/var/lib/postgresql/data
-
-  odoo16:
-    image: odoo:16
-    user: root
-    depends_on:
-      - db
+  pgadmin:
+    image: dpage/pgadmin4
+    container_name: pgadmin4
+    restart: always
     ports:
-      - "10016:8069"
-      - "20016:8072" # live chat
-    tty: true
-    command: --
+      - "8050:80"
     environment:
-      - HOST=db
-      - USER=odoo
-      - PASSWORD=odoo16@2022
+      - PGADMIN_CONFIG_SERVER_MODE=False
+      - PGADMIN_CONFIG_MASTER_PASSWORD_REQUIRED=False
+      - PGADMIN_DEFAULT_EMAIL=pgadmin4@pgadmin.org
+      - PGADMIN_DEFAULT_PASSWORD=admin
     volumes:
-      #- /etc/timezone:/etc/timezone:ro
-      #- /etc/localtime:/etc/localtime:ro
-      # - ./entrypoint.sh:/entrypoint.sh   # if you want to install additional Python packages, uncomment this line!
-      - ./addons:/mnt/extra-addons
-      - ./etc:/etc/odoo
-    restart: always             # run as a service
-    
+       - ./pgadmin/servers.json:/pgadmin4/servers.json
+
+  postgresql:
+    container_name: postgresql
+    image: docker.io/bitnami/postgresql:16
+    volumes:
+      - 'postgresql_data:/bitnami/postgresql'
+    environment:
+      # ALLOW_EMPTY_PASSWORD is recommended only for development.
+      - ALLOW_EMPTY_PASSWORD=yes
+      - POSTGRESQL_USERNAME=bn_odoo
+      - POSTGRESQL_DATABASE=bitnami_odoo
+
+  odoo:
+    container_name: odoo
+    image: docker.io/bitnami/odoo:16.0.20240215-debian-12-r2
+    ports:
+      - '80:8069'
+    volumes:
+      - 'odoo_data:/bitnami/odoo'
+      - ../odoo-addons:/bitnami/odoo/data/addons/16.0
+      - ${PWD}/odoo.conf:/bitnami/odoo/conf/odoo.conf
+    depends_on:
+      - postgresql
+    environment:
+      # ALLOW_EMPTY_PASSWORD is recommended only for development.
+      - ALLOW_EMPTY_PASSWORD=yes
+      - ODOO_DATABASE_HOST=postgresql
+      - ODOO_DATABASE_PORT_NUMBER=5432
+      - ODOO_DATABASE_USER=bn_odoo
+      - ODOO_DATABASE_NAME=bitnami_odoo
+
+volumes:
+  postgresql_data:
+    driver: local
+  odoo_data:
+    driver: local
